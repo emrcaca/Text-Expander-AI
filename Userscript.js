@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         EmR Text Expander
-// @namespace    http://tampermonkey.net/
+// @namespace    https://github.com/emrcaca/Text-Expander-AI
 // @version      1.5
 // @description  Kısayol genişletici + AI desteği (OpenAI API ile)
 // @match        *://*/*
