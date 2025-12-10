@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Text Expander
+// @name         Text-Expander-AI
 // @namespace    http://tampermonkey.net/
 // @version      1.0
 // @description  AI-powered text expansion tool with smart triggers and processing
@@ -21,7 +21,7 @@
  *
  *                    Text-Expander-AI
  *
- *    GitHub: https://github.com/emrcaca/AI-Text-Improver
+ *    GitHub: https://github.com/emrcaca/Text-Expander-AI
  *    Copyright (c) 2025 emrcaca | MIT License
  */
 
