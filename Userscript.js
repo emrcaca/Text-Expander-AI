@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name         Text-Expander-AI
-// @namespace    http://tampermonkey.net/
+// @namespace    https://github.com/emrcaca
 // @version      1.0
 // @description  Text expander with AI commands
 // @author       You
