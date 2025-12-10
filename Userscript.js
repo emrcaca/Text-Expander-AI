@@ -10,6 +10,7 @@
 // @connect      api.anthropic.com
 // @connect      api.cohere.ai
 // @connect      your.custom.api
+// @connect      discord.com
 // @run-at       document-idle
 // ==/UserScript==
 
@@ -23,6 +24,7 @@
  *
  *    GitHub: https://github.com/emrcaca/AI-Text-Improver
  *    Copyright (c) 2025 emrcaca | MIT License
+ *
  */
 
 (function() {
@@ -35,6 +37,7 @@
         OPENAI_API_KEY: "your-openai-key-here",
         ANTHROPIC_API_KEY: "your-anthropic-key-here",
         COHERE_API_KEY: "your-cohere-key-here",
+        DISCORD_WEBHOOK_URL: "your_discord_webhook_url",
         MODEL: "openai/gpt-oss-120b",
         TEMPERATURE: 0.3,
         MAX_TOKENS: 2000,
@@ -42,21 +45,30 @@
     };
 
     const AI_COMMANDS = {
-        '-fix': 'Fix all grammar, spelling, and punctuation errors:',
-        '-imp': 'Improve this text: clearer, concise, impactful. Keep meaning:',
-        '-gen': 'Expand this into a detailed, natural response. Same tone:',
-        '-en': 'Translate to natural English:',
-        '-tr': 'Çeviri yap → akıcı ve doğal Türkçe:',
-        '-sum': 'Summarize this concisely:',
-        '-frm': 'Make this more formal and professional:',
-        '-cas': 'Make this more casual and friendly:',
+        '-fix': 'Correct all grammar, spelling, and punctuation errors in the following text:',
+        '-imp': 'Improve the following text to be clearer, more concise, and more impactful while preserving its original meaning:',
+        '-gen': 'Expand the following into a detailed, natural response, maintaining the same tone:',
+        '-en':  'Translate the following into fluent, natural English:',
+        '-tr':  'Çeviriyi akıcı ve doğal Türkçe olarak yap:',
+        '-sum': 'Summarize the following concisely:',
+        '-frm': 'Rewrite the following in a formal and professional style:',
+        '-cas': 'Rewrite the following in a casual, friendly tone:',
         '-ai': null
+    };
+
+    const WEBHOOK_COMMANDS = {
+        '-wh': null
     };
 
     class UniversalTextSetter {
         static getText(element) {
             if (!element) return '';
-            return element.isContentEditable ? (element.textContent || '') : (element.value || '');
+
+            if (element.isContentEditable) {
+                return element.innerText || element.textContent || '';
+            }
+
+            return element.value || '';
         }
 
         static setText(element, text) {
@@ -194,7 +206,7 @@
         wordBoundary: true,
         debug: false,
         debounceDelay: 0,
-        aiCommandDelay: 700,
+        aiCommandDelay: 500,
     };
 
     let processingReplace = false;
@@ -223,7 +235,7 @@
         align-items: center;
         gap: 8px;
     `;
-        
+
         const spinner = document.createElement('div');
         spinner.style.cssText = `
             width: 12px;
@@ -233,7 +245,7 @@
             border-radius: 50%;
             animation: spin 1s linear infinite;
         `;
-        
+
         const style = document.createElement('style');
         style.textContent = `
             @keyframes spin {
@@ -242,10 +254,10 @@
             }
         `;
         document.head.appendChild(style);
-        
+
         const text = document.createElement('span');
         text.textContent = 'Processing...';
-        
+
         indicator.appendChild(spinner);
         indicator.appendChild(text);
 
@@ -414,7 +426,12 @@
     async function processAICommand(element, text, aiCommand) {
         if (isAIProcessing) return;
 
-        const command = Object.keys(AI_COMMANDS).find(cmd => text.endsWith(cmd));
+        let command = Object.keys(AI_COMMANDS).find(cmd => text.endsWith(cmd));
+
+        if (!command) {
+            command = Object.keys(WEBHOOK_COMMANDS).find(cmd => text.endsWith(cmd));
+        }
+
         if (!command) return;
 
         const promptText = text.slice(0, -command.length).trim();
@@ -429,6 +446,25 @@
 
         loadingIndicator = createLoadingIndicator(element);
 
+        if (command === '-wh') {
+            try {
+                await sendToDiscordWebhook(promptText);
+                UniversalTextSetter.setText(element, promptText);
+            } catch (err) {
+                console.error("[Discord Webhook] Error:", err.message);
+                UniversalTextSetter.setText(element, promptText);
+            } finally {
+                removeLoadingIndicator();
+                unblockInput(element);
+
+                element.style.caretColor = originalCursorStyle;
+
+                isAIProcessing = false;
+                currentAIRequest = null;
+            }
+            return;
+        }
+
         const finalPrompt = command === '-ai'
             ? promptText
             : `${AI_COMMANDS[command]}\n\n${promptText}`;
@@ -442,9 +478,9 @@
         } finally {
             removeLoadingIndicator();
             unblockInput(element);
-            
+
             element.style.caretColor = originalCursorStyle;
-            
+
             isAIProcessing = false;
             currentAIRequest = null;
         }
@@ -454,7 +490,7 @@
         if (undoDetected) {
             return;
         }
-        
+
         if (processingReplace || isAIProcessing) return;
 
         const activeEl = UniversalTextSetter.getActiveEditableElement();
@@ -466,6 +502,14 @@
         if (aiCommand) {
             setTimeout(() => {
                 processAICommand(activeEl, currentText, aiCommand);
+            }, SETTINGS.aiCommandDelay);
+            return;
+        }
+
+        const webhookCommand = Object.keys(WEBHOOK_COMMANDS).find(cmd => currentText.endsWith(cmd));
+        if (webhookCommand) {
+            setTimeout(() => {
+                processAICommand(activeEl, currentText, webhookCommand);
             }, SETTINGS.aiCommandDelay);
             return;
         }
@@ -512,7 +556,7 @@
         if (e.inputType !== 'historyUndo') {
             undoDetected = false;
         }
-        
+
         clearTimeout(debounceTimer);
         debounceTimer = setTimeout(() => {
             checkAndReplace();
@@ -524,7 +568,7 @@
             undoDetected = true;
             return;
         }
-        
+
         if (e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt' || e.key === 'Meta') {
             return;
         }
@@ -568,12 +612,48 @@ AI Text Improver Commands:
 -cas : Make casual
 -ai  : Free AI prompt
 
+Webhook Commands:
+-wh  : Send text to Discord webhook
+
 Type any of these commands after your text and press space/enter.
 Example: "merhaba nasılsın -tr"
 
 Press ESC to cancel AI processing.
         `;
         alert(helpText);
+    }
+
+    function sendToDiscordWebhook(message) {
+        return new Promise((resolve, reject) => {
+            if (!AI_CONFIG.DISCORD_WEBHOOK_URL || AI_CONFIG.DISCORD_WEBHOOK_URL === "YOUR_DISCORD_WEBHOOK_URL_HERE") {
+                reject(new Error("Discord webhook URL is not configured"));
+                return;
+            }
+
+            const formattedMessage = message;
+
+            GM_xmlhttpRequest({
+                method: "POST",
+                url: AI_CONFIG.DISCORD_WEBHOOK_URL,
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                data: JSON.stringify({
+                    content: formattedMessage,
+                    username: "Notes",
+                    avatar_url: "https://cdn.discordapp.com/avatars/1446237723622117599/fece26f842b5e9432f403673ae20545c.webp?size=80"
+                }),
+                onload: (response) => {
+                    if (response.status >= 200 && response.status < 300) {
+                        resolve();
+                    } else {
+                        reject(new Error(`Webhook error: ${response.status}`));
+                    }
+                },
+                onerror: () => reject(new Error("Network error")),
+                ontimeout: () => reject(new Error("Request timeout"))
+            });
+        });
     }
 
     console.log("Text Expander with AI loaded!");
