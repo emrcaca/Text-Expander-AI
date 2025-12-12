@@ -1,24 +1,26 @@
 // ==UserScript==
 // @name         Text-Expander-AI
 // @namespace    https://github.com/emrcaca
-// @version      1.0
-// @description  Text expander with AI commands
-// @author       You
+// @version      2.3.0
+// @description  Text expander with AI commands + Hover translation
+// @author       emrcaca
 // @match        *://*/*
 // @grant        GM_xmlhttpRequest
-// @connect      api.openai.com
-// @connect      api.anthropic.com
-// @connect      api.cohere.ai
-// @connect      your.custom.api
+// @grant        GM_addStyle
+// @connect      api.example.com
 // @connect      discord.com
+// @connect      translate.googleapis.com
 // @run-at       document-idle
 // ==/UserScript==
 
 /**
- *          ___ _ __ ___  _ __ ___ __ _  ___ __ _
- *         / _ \ '_ ` _ \| '__/ __/ _` |/ __/ _` |
- *        |  __/ | | | | | | | (_| (_| | (_| (_| |
- *         \___|_| |_| |_|_|  \___\__,_|\___\__,_|
+ *
+ *    ███████╗███╗   ███╗██████╗  ██████╗ █████╗  ██████╗ █████╗
+ *    ██╔════╝████╗ ████║██╔══██╗██╔════╝██╔══██╗██╔════╝██╔══██╗
+ *    █████╗  ██╔████╔██║██████╔╝██║     ███████║██║     ███████║
+ *    ██╔══╝  ██║╚██╔╝██║██╔══██╗██║     ██╔══██║██║     ██╔══██║
+ *    ███████╗██║ ╚═╝ ██║██║  ██║╚██████╗██║  ██║╚██████╗██║  ██║
+ *    ╚══════╝╚═╝     ╚═╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝ ╚═════╝╚═╝  ╚═╝
  *
  *                    Text-Expander-AI
  *
@@ -30,35 +32,348 @@
 (function() {
     'use strict';
 
-    const AI_CONFIG = {
-        AI_PROVIDER: "custom",
-        CUSTOM_API_URL: "https://your.custom.api/v1/chat/completions",
-        CUSTOM_API_KEY: "your-custom-api-key-here",
-        OPENAI_API_KEY: "your-openai-key-here",
-        ANTHROPIC_API_KEY: "your-anthropic-key-here",
-        COHERE_API_KEY: "your-cohere-key-here",
-        DISCORD_WEBHOOK_URL: "your_discord_webhook_url",
-        MODEL: "openai/gpt-oss-120b",
-        TEMPERATURE: 0.3,
-        MAX_TOKENS: 2000,
-        TIMEOUT: 30000
+    // ╔═══════════════════════════════════════════════════════════════════════════╗
+    // ║                              CONFIGURATION                                 ║
+    // ╚═══════════════════════════════════════════════════════════════════════════╝
+
+    const CONFIG = {
+        // AI API Settings
+        ai: {
+            url: "https://api.example.com/v1/chat/completions",
+            key: "sk-xxx",
+            model: "openai/gpt-oss-120b",
+            temperature: 0.7,
+            topP: 0.8,
+            maxTokens: 2000,
+            timeout: 60000
+        },
+
+        // Discord Webhook
+        discord: {
+            webhookUrl: "https://discord.com/api/webhooks/....",
+            username: "Notes"
+        },
+
+        // Translator Settings
+        translator: {
+            targetLang: 'tr',
+            minChars: 1,
+            maxChars: 2000,
+            tooltipGap: 12,
+            edgePadding: 10,
+            debounce: 300,
+            hideDelay: 200,
+            timeout: 15000
+        },
+
+        // Dots Animation
+        dots: {
+            enabled: true,
+            speed: 300,
+            text: 'AI çalışıyor'
+        },
+
+        // Text Expander Settings
+        expander: {
+            wordBoundary: true,
+            debounceDelay: 10,
+            aiCommandDelay: 500,
+            debug: false
+        }
     };
 
-    const AI_COMMANDS = {
-        '-fix': 'Correct all grammar, spelling, and punctuation errors in the following text:',
-        '-imp': 'Improve the following text to be clearer, more concise, and more impactful while preserving its original meaning:',
-        '-gen': 'Expand the following into a detailed, natural response, maintaining the same tone:',
-        '-en':  'Translate the following into fluent, natural English:',
-        '-tr':  'Çeviriyi akıcı ve doğal Türkçe olarak yap:',
-        '-sum': 'Summarize the following concisely:',
-        '-frm': 'Rewrite the following in a formal and professional style:',
-        '-cas': 'Rewrite the following in a casual, friendly tone:',
-        '-ai': null
+    // AI System Prompts
+    const AI_PROMPTS = {
+        '-ai':  'You are a helpful assistant. Provide a concise and helpful response. Return only the result.',
+        '-fix': 'Fix all grammar, spelling, and punctuation errors. Return only the corrected text without any explanation.',
+        '-imp': 'Improve the text to be clearer, more concise, and impactful while preserving its meaning. Return only the improved text.',
+        '-gen': 'Expand the text into a detailed, natural response maintaining the same tone. Return only the expanded text.',
+        '-en':  'Translate into fluent, natural English. Return only the translation.',
+        '-tr':  'Akıcı ve doğal Türkçeye çevir. Sadece çeviriyi döndür.',
+        '-sum': 'Summarize concisely. Return only the summary.',
+        '-frm': 'Rewrite in a formal and professional style. Return only the rewritten text.',
+        '-cas': 'Rewrite in a casual, friendly tone. Return only the rewritten text.'
     };
 
-    const WEBHOOK_COMMANDS = {
-        '-wh': null
+    // Webhook Commands
+    const WEBHOOK_COMMANDS = ['-wh'];
+
+    // Text Triggers
+    const TRIGGERS = [
+        { trigger: '"1', replace: 'Owo h' },
+        { trigger: '"2', replace: 'Owo b' },
+        { trigger: '"3', replace: 'Owo' },
+        { trigger: '"4', replace: 'Owo pray' },
+        { trigger: ':check', replace: '✓' },
+        { trigger: ':cross', replace: '✗' },
+        { trigger: ':heart', replace: '❤️' },
+        { trigger: ':tarih', replace: () => new Date().toLocaleDateString('tr-TR') },
+        { trigger: ':date', replace: () => new Date().toLocaleDateString('en-US') },
+        { trigger: ':saat', replace: () => new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) },
+        { trigger: ':time', replace: () => new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) },
+        { trigger: ':gun', replace: () => ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'][new Date().getDay()] }
+    ];
+
+    // ╔═══════════════════════════════════════════════════════════════════════════╗
+    // ║                                 STYLES                                     ║
+    // ╚═══════════════════════════════════════════════════════════════════════════╝
+
+    GM_addStyle(`
+        :root {
+            --te-bg: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            --te-border: #0f3460;
+            --te-accent: #e94560;
+            --te-text: #e8e8e8;
+            --te-text-dim: rgba(255, 255, 255, 0.5);
+            --te-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+            --te-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        /* Dots Indicator */
+        .te-dots {
+            position: fixed;
+            background: var(--te-bg);
+            border: 1px solid var(--te-border);
+            border-radius: 8px;
+            padding: 10px 16px;
+            font-size: 13px;
+            color: var(--te-text);
+            font-weight: 500;
+            z-index: 999999;
+            pointer-events: none;
+            box-shadow: var(--te-shadow);
+            font-family: var(--te-font);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .te-dots__spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-top-color: var(--te-accent);
+            border-radius: 50%;
+            animation: te-spin 0.8s linear infinite;
+        }
+
+        .te-dots__text { min-width: 110px; }
+
+        .te-dots__hint {
+            font-size: 11px;
+            color: var(--te-text-dim);
+            padding-left: 10px;
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        @keyframes te-spin { to { transform: rotate(360deg); } }
+
+        /* Help Modal */
+        .te-modal {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: var(--te-bg);
+            border: 1px solid var(--te-border);
+            border-radius: 10px;
+            font-size: 12px;
+            color: var(--te-text);
+            z-index: 999999;
+            box-shadow: var(--te-shadow);
+            font-family: var(--te-font);
+            min-width: 280px;
+            max-width: 320px;
+            opacity: 0;
+            transform: translateY(10px) scale(0.95);
+            transition: opacity 0.2s, transform 0.2s;
+            pointer-events: none;
+        }
+
+        .te-modal--visible {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: auto;
+        }
+
+        .te-modal__header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 14px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .te-modal__title {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 600;
+            font-size: 13px;
+        }
+
+        .te-modal__icon {
+            width: 18px;
+            height: 18px;
+            background: var(--te-accent);
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+        }
+
+        .te-modal__close {
+            background: none;
+            border: none;
+            color: var(--te-text-dim);
+            cursor: pointer;
+            padding: 4px;
+            font-size: 16px;
+            line-height: 1;
+            transition: color 0.15s;
+        }
+
+        .te-modal__close:hover { color: var(--te-accent); }
+
+        .te-modal__content {
+            padding: 12px 14px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+
+        .te-modal__section { margin-bottom: 12px; }
+        .te-modal__section:last-child { margin-bottom: 0; }
+
+        .te-modal__label {
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--te-accent);
+            margin-bottom: 6px;
+            font-weight: 600;
+        }
+
+        .te-modal__grid {
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 4px 12px;
+        }
+
+        .te-modal__cmd {
+            font-family: 'SF Mono', Monaco, monospace;
+            font-size: 11px;
+            background: rgba(255, 255, 255, 0.08);
+            padding: 2px 6px;
+            border-radius: 4px;
+            color: #7dd3fc;
+        }
+
+        .te-modal__desc {
+            color: var(--te-text-dim);
+            font-size: 11px;
+        }
+
+        .te-modal__footer {
+            padding: 8px 14px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            font-size: 10px;
+            color: var(--te-text-dim);
+        }
+
+        .te-modal__footer kbd {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+
+        .te-modal__content::-webkit-scrollbar { width: 6px; }
+        .te-modal__content::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 3px;
+        }
+
+        /* Translator Tooltip */
+        .te-tooltip {
+            position: absolute;
+            background: var(--te-bg);
+            color: var(--te-text);
+            padding: 12px 16px;
+            border-radius: 10px;
+            border: 1px solid var(--te-border);
+            font-size: 14px;
+            line-height: 1.6;
+            max-width: 400px;
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s, transform 0.15s;
+            transform: translateX(-50%) translateY(4px);
+            z-index: 999998;
+            box-shadow: var(--te-shadow);
+            display: none;
+            word-break: break-word;
+            font-family: var(--te-font);
+        }
+
+        .te-tooltip--visible {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        .te-tooltip::after {
+            content: '';
+            position: absolute;
+            left: calc(50% + var(--arrow-offset, 0px));
+            transform: translateX(-50%);
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+        }
+
+        .te-tooltip[data-pos="top"]::after {
+            bottom: -8px;
+            border-top: 8px solid #16213e;
+        }
+
+        .te-tooltip[data-pos="bottom"]::after {
+            top: -8px;
+            border-bottom: 8px solid #1a1a2e;
+        }
+
+        .te-tooltip__loading {
+            display: inline-flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .te-tooltip__spinner {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-top-color: var(--te-accent);
+            animation: te-spin 0.8s linear infinite;
+        }
+    `);
+
+    // ╔═══════════════════════════════════════════════════════════════════════════╗
+    // ║                            UTILITY FUNCTIONS                               ║
+    // ╚═══════════════════════════════════════════════════════════════════════════╝
+
+    const Utils = {
+        escapeRegex: (str) => str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+
+        escapeHtml: (str) => String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;'),
+
+        clamp: (val, min, max) => Math.max(min, Math.min(max, val)),
+
+        log: (...args) => CONFIG.expander.debug && console.log('[TE]', ...args)
     };
+
+    // ╔═══════════════════════════════════════════════════════════════════════════╗
+    // ║                      UNIVERSAL TEXT SETTER (DOM PRESERVED)                 ║
+    // ╚═══════════════════════════════════════════════════════════════════════════╝
 
     class UniversalTextSetter {
         static getText(element) {
@@ -164,498 +479,498 @@
                    element.getAttribute('contenteditable') === 'true';
         }
 
-        static getActiveEditableElement() {
-            const activeElement = document.activeElement;
-            return this.isEditable(activeElement) ? activeElement : null;
+        static getActiveEditable() {
+            const el = document.activeElement;
+            return this.isEditable(el) ? el : null;
         }
     }
 
-    const TRIGGERS = [
-        { trigger: 'hi', replace: 'Hello!' },
-        { trigger: 'ok', replace: 'okey' },
-        { trigger: 'brb', replace: 'Be right back' },
-        { trigger: 'omw', replace: 'On my way' },
-        { trigger: 'thx', replace: 'Thanks!' },
-        { trigger: 'ty', replace: 'Thank you!' },
-        { trigger: 'np', replace: 'No problem!' },
-        { trigger: 'idk', replace: "I don't know" },
-        { trigger: 'btw', replace: 'By the way' },
-        { trigger: 'imo', replace: 'In my opinion' },
-        { trigger: 'afaik', replace: 'As far as I know' },
-        { trigger: ':mail', replace: 'ornek@email.com' },
-        { trigger: ':mymail', replace: 'benim@email.com' },
-        { trigger: '"1', replace: 'Owo h' },
-        { trigger: '"2', replace: 'Owo b' },
-        { trigger: '"3', replace: 'Owo' },
-        { trigger: '"4', replace: 'Owo pray' },
-        { trigger: ':tarih', replace: () => new Date().toLocaleDateString('tr-TR') },
-        { trigger: ':date', replace: () => new Date().toLocaleDateString('en-US') },
-        { trigger: ':saat', replace: () => new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }) },
-        { trigger: ':time', replace: () => new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) },
-        { trigger: ':gun', replace: () => {
-                const days = ['Pazar', 'Pazartesi', 'Salı', 'Çarşamba', 'Perşembe', 'Cuma', 'Cumartesi'];
-                return days[new Date().getDay()];
+    // ╔═══════════════════════════════════════════════════════════════════════════╗
+    // ║                              DOTS ANIMATION                                ║
+    // ╚═══════════════════════════════════════════════════════════════════════════╝
+
+    const DotsAnimation = (() => {
+        let interval = null;
+        let indicator = null;
+        let count = 0;
+
+        const start = (element) => {
+            stop();
+
+            indicator = document.createElement('div');
+            indicator.className = 'te-dots';
+            indicator.innerHTML = `
+                <div class="te-dots__spinner"></div>
+                <span class="te-dots__text">${CONFIG.dots.text}</span>
+                <span class="te-dots__hint">ESC iptal</span>
+            `;
+
+            const rect = element.getBoundingClientRect();
+            indicator.style.top = `${Math.max(10, rect.top - 50)}px`;
+            indicator.style.left = `${rect.left}px`;
+
+            document.body.appendChild(indicator);
+
+            // Adjust if overflows
+            const ir = indicator.getBoundingClientRect();
+            if (ir.right > window.innerWidth - 10) {
+                indicator.style.left = `${window.innerWidth - ir.width - 10}px`;
             }
-        },
-        { trigger: ':heart', replace: '❤️' },
-        { trigger: ':check', replace: '✓' },
-        { trigger: ':cross', replace: '✗' },
-    ];
 
-    const SETTINGS = {
-        wordBoundary: true,
-        debug: false,
-        debounceDelay: 0,
-        aiCommandDelay: 500,
-    };
-
-    let processingReplace = false;
-    let debounceTimer = null;
-    let isAIProcessing = false;
-    let currentAIRequest = null;
-    let loadingIndicator = null;
-    let undoDetected = false;
-
-    function createLoadingIndicator(element) {
-        const indicator = document.createElement('div');
-        indicator.style.cssText = `
-        position: absolute;
-        background: rgba(0, 0, 0, 0.8);
-        border: 1px solid #333333;
-        border-radius: 0px;
-        padding: 6px 10px;
-        font-size: 11px;
-        color: #CCCCCC;
-        font-weight: normal;
-        z-index: 999999;
-        pointer-events: none;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
-        font-family: "MS Sans Serif", "Microsoft Sans Serif", sans-serif;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    `;
-
-        const spinner = document.createElement('div');
-        spinner.style.cssText = `
-            width: 12px;
-            height: 12px;
-            border: 2px solid #cccccc;
-            border-top: 2px solid #333333;
-            border-radius: 50%;
-            animation: spin 1s linear infinite;
-        `;
-
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes spin {
-                0% { transform: rotate(0deg); }
-                100% { transform: rotate(360deg); }
-            }
-        `;
-        document.head.appendChild(style);
-
-        const text = document.createElement('span');
-        text.textContent = 'Processing...';
-
-        indicator.appendChild(spinner);
-        indicator.appendChild(text);
-
-        const rect = element.getBoundingClientRect();
-        indicator.style.top = `${rect.top + window.scrollY + (rect.height / 2)}px`;
-        indicator.style.left = `${rect.left + window.scrollX + (rect.width / 2)}px`;
-        indicator.style.transform = 'translate(-50%, -50%)';
-
-        document.body.appendChild(indicator);
-        return indicator;
-    }
-
-    function removeLoadingIndicator() {
-        if (loadingIndicator) {
-            loadingIndicator.remove();
-            loadingIndicator = null;
-        }
-    }
-
-    function blockInput(element) {
-        const blocker = (e) => {
-            if (isAIProcessing) {
-                e.preventDefault();
-                e.stopPropagation();
-                return false;
-            }
+            interval = setInterval(() => {
+                if (!indicator) return;
+                count = (count + 1) % 4;
+                const textEl = indicator.querySelector('.te-dots__text');
+                if (textEl) textEl.textContent = `${CONFIG.dots.text}${'.'.repeat(count)}`;
+            }, CONFIG.dots.speed);
         };
 
-        element._aiBlocker = blocker;
-        element.addEventListener('keydown', blocker, true);
-        element.addEventListener('keypress', blocker, true);
-        element.addEventListener('input', blocker, true);
-        element.addEventListener('paste', blocker, true);
-    }
+        const stop = () => {
+            if (interval) { clearInterval(interval); interval = null; }
+            if (indicator) { indicator.remove(); indicator = null; }
+            count = 0;
+        };
 
-    function unblockInput(element) {
-        if (element._aiBlocker) {
-            element.removeEventListener('keydown', element._aiBlocker, true);
-            element.removeEventListener('keypress', element._aiBlocker, true);
-            element.removeEventListener('input', element._aiBlocker, true);
-            element.removeEventListener('paste', element._aiBlocker, true);
-            delete element._aiBlocker;
-        }
-    }
+        return { start, stop };
+    })();
 
-    class AIClient {
-        static buildRequest(prompt) {
-            const providers = {
-                openai: {
-                    url: "https://api.openai.com/v1/chat/completions",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${AI_CONFIG.OPENAI_API_KEY}`
-                    },
-                    data: {
-                        model: AI_CONFIG.MODEL,
-                        messages: [
-                            { role: "system", content: "Return only the result. No extra text, explanations, or quotes." },
-                            { role: "user", content: prompt }
-                        ],
-                        temperature: AI_CONFIG.TEMPERATURE,
-                        max_tokens: AI_CONFIG.MAX_TOKENS
-                    }
+    // ╔═══════════════════════════════════════════════════════════════════════════╗
+    // ║                               HELP MODAL                                   ║
+    // ╚═══════════════════════════════════════════════════════════════════════════╝
+
+    const HelpModal = (() => {
+        let modal = null;
+        let visible = false;
+
+        const create = () => {
+            if (modal) return modal;
+
+            modal = document.createElement('div');
+            modal.className = 'te-modal';
+            modal.innerHTML = `
+                <div class="te-modal__header">
+                    <div class="te-modal__title">
+                        <span class="te-modal__icon">⚡</span>
+                        Text Expander AI
+                    </div>
+                    <button class="te-modal__close">×</button>
+                </div>
+                <div class="te-modal__content">
+                    <div class="te-modal__section">
+                        <div class="te-modal__label">AI Komutları</div>
+                        <div class="te-modal__grid">
+                            <span class="te-modal__cmd">-fix</span><span class="te-modal__desc">Yazım düzelt</span>
+                            <span class="te-modal__cmd">-imp</span><span class="te-modal__desc">Geliştir</span>
+                            <span class="te-modal__cmd">-gen</span><span class="te-modal__desc">Genişlet</span>
+                            <span class="te-modal__cmd">-en</span><span class="te-modal__desc">İngilizce</span>
+                            <span class="te-modal__cmd">-tr</span><span class="te-modal__desc">Türkçe</span>
+                            <span class="te-modal__cmd">-sum</span><span class="te-modal__desc">Özetle</span>
+                            <span class="te-modal__cmd">-frm</span><span class="te-modal__desc">Resmi</span>
+                            <span class="te-modal__cmd">-cas</span><span class="te-modal__desc">Günlük</span>
+                            <span class="te-modal__cmd">-ai</span><span class="te-modal__desc">Serbest</span>
+                            <span class="te-modal__cmd">-wh</span><span class="te-modal__desc">Discord</span>
+                        </div>
+                    </div>
+                    <div class="te-modal__section">
+                        <div class="te-modal__label">Hover Çeviri</div>
+                        <div class="te-modal__grid">
+                            <span class="te-modal__cmd">Seç</span><span class="te-modal__desc">Otomatik çevir</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="te-modal__footer"><kbd>ESC</kbd> kapat</div>
+            `;
+
+            document.body.appendChild(modal);
+            modal.querySelector('.te-modal__close').addEventListener('click', hide);
+            document.addEventListener('click', (e) => visible && !modal.contains(e.target) && hide());
+
+            return modal;
+        };
+
+        const show = () => { create(); visible = true; requestAnimationFrame(() => modal.classList.add('te-modal--visible')); };
+        const hide = () => { if (modal) { modal.classList.remove('te-modal--visible'); visible = false; } };
+        const toggle = () => visible ? hide() : show();
+        const isVisible = () => visible;
+
+        return { show, hide, toggle, isVisible };
+    })();
+
+    // ╔═══════════════════════════════════════════════════════════════════════════╗
+    // ║                               AI CLIENT                                    ║
+    // ╚═══════════════════════════════════════════════════════════════════════════╝
+
+    const AIClient = (() => {
+        let currentRequest = null;
+
+        const request = (userInput, command) => new Promise((resolve, reject) => {
+            const systemPrompt = AI_PROMPTS[command] || AI_PROMPTS['-ai'];
+
+            currentRequest = GM_xmlhttpRequest({
+                method: "POST",
+                url: CONFIG.ai.url,
+                headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${CONFIG.ai.key}`
                 },
-                anthropic: {
-                    url: "https://api.anthropic.com/v1/messages",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "x-api-key": AI_CONFIG.ANTHROPIC_API_KEY,
-                        "anthropic-version": "2023-06-01"
-                    },
-                    data: {
-                        model: AI_CONFIG.MODEL,
-                        max_tokens: AI_CONFIG.MAX_TOKENS,
-                        messages: [{ role: "user", content: prompt }]
-                    }
+                data: JSON.stringify({
+                    model: CONFIG.ai.model,
+                    messages: [
+                        { role: "system", content: systemPrompt },
+                        { role: "user", content: userInput }
+                    ],
+                    temperature: CONFIG.ai.temperature,
+                    top_p: CONFIG.ai.topP,
+                    max_tokens: CONFIG.ai.maxTokens
+                }),
+                timeout: CONFIG.ai.timeout,
+                onload: (res) => {
+                    currentRequest = null;
+                    if (res.status >= 400) return reject(new Error(`API: ${res.status}`));
+                    try {
+                        const content = JSON.parse(res.responseText)?.choices?.[0]?.message?.content?.trim();
+                        content ? resolve(content) : reject(new Error("Empty"));
+                    } catch { reject(new Error("Parse")); }
                 },
-                cohere: {
-                    url: "https://api.cohere.ai/v1/chat",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${AI_CONFIG.COHERE_API_KEY}`
-                    },
-                    data: {
-                        model: AI_CONFIG.MODEL,
-                        message: prompt,
-                        temperature: AI_CONFIG.TEMPERATURE,
-                        max_tokens: AI_CONFIG.MAX_TOKENS
-                    }
-                },
-                custom: {
-                    url: AI_CONFIG.CUSTOM_API_URL,
-                    headers: {
-                        "Content-Type": "application/json",
-                        "Authorization": `Bearer ${AI_CONFIG.CUSTOM_API_KEY}`
-                    },
-                    data: {
-                        model: AI_CONFIG.MODEL,
-                        messages: [
-                            { role: "system", content: "Return only the result. No extra text, explanations, or quotes." },
-                            { role: "user", content: prompt }
-                        ],
-                        temperature: AI_CONFIG.TEMPERATURE,
-                        max_tokens: AI_CONFIG.MAX_TOKENS
-                    }
-                }
-            };
-
-            return providers[AI_CONFIG.AI_PROVIDER] || providers.custom;
-        }
-
-        static extractResponse(data, provider) {
-            const extractors = {
-                anthropic: () => data.content?.[0]?.text?.trim(),
-                cohere: () => data.text?.trim(),
-                default: () => data.choices?.[0]?.message?.content?.trim()
-            };
-
-            return (extractors[provider] || extractors.default)();
-        }
-
-        static makeRequest(prompt) {
-            return new Promise((resolve, reject) => {
-                const request = this.buildRequest(prompt);
-
-                currentAIRequest = GM_xmlhttpRequest({
-                    method: "POST",
-                    url: request.url,
-                    headers: request.headers,
-                    data: JSON.stringify(request.data),
-                    timeout: AI_CONFIG.TIMEOUT,
-                    onload: (response) => {
-                        if (response.status >= 400) {
-                            reject(new Error(`API error: ${response.status}`));
-                            return;
-                        }
-
-                        try {
-                            const data = JSON.parse(response.responseText);
-                            const content = this.extractResponse(data, AI_CONFIG.AI_PROVIDER);
-
-                            if (!content) {
-                                reject(new Error("Empty AI response"));
-                                return;
-                            }
-
-                            resolve(content);
-                        } catch (err) {
-                            reject(new Error("Failed to parse response"));
-                        }
-                    },
-                    onerror: () => reject(new Error("Network error")),
-                    ontimeout: () => reject(new Error("Request timeout"))
-                });
+                onerror: () => { currentRequest = null; reject(new Error("Network")); },
+                ontimeout: () => { currentRequest = null; reject(new Error("Timeout")); },
+                onabort: () => { currentRequest = null; reject(new Error("Cancelled")); }
             });
-        }
+        });
 
-        static cancelRequest() {
-            if (currentAIRequest) {
-                currentAIRequest.abort();
-                currentAIRequest = null;
-            }
-        }
-    }
+        const cancel = () => { if (currentRequest) { try { currentRequest.abort(); } catch {} currentRequest = null; } };
 
-    async function processAICommand(element, text, aiCommand) {
-        if (isAIProcessing) return;
+        return { request, cancel };
+    })();
 
-        let command = Object.keys(AI_COMMANDS).find(cmd => text.endsWith(cmd));
+    // ╔═══════════════════════════════════════════════════════════════════════════╗
+    // ║                            DISCORD WEBHOOK                                 ║
+    // ╚═══════════════════════════════════════════════════════════════════════════╝
 
-        if (!command) {
-            command = Object.keys(WEBHOOK_COMMANDS).find(cmd => text.endsWith(cmd));
-        }
-
-        if (!command) return;
-
-        const promptText = text.slice(0, -command.length).trim();
-        if (!promptText) return;
-
-        isAIProcessing = true;
-
-        const originalCursorStyle = element.style.caretColor || '';
-        element.style.caretColor = 'transparent';
-
-        blockInput(element);
-
-        loadingIndicator = createLoadingIndicator(element);
-
-        if (command === '-wh') {
-            try {
-                await sendToDiscordWebhook(promptText);
-                UniversalTextSetter.setText(element, promptText);
-            } catch (err) {
-                console.error("[Discord Webhook] Error:", err.message);
-                UniversalTextSetter.setText(element, promptText);
-            } finally {
-                removeLoadingIndicator();
-                unblockInput(element);
-
-                element.style.caretColor = originalCursorStyle;
-
-                isAIProcessing = false;
-                currentAIRequest = null;
-            }
-            return;
-        }
-
-        const finalPrompt = command === '-ai'
-            ? promptText
-            : `${AI_COMMANDS[command]}\n\n${promptText}`;
-
-        try {
-            const result = await AIClient.makeRequest(finalPrompt);
-            UniversalTextSetter.setText(element, result);
-        } catch (err) {
-            console.error("[AI] Error:", err.message);
-            UniversalTextSetter.setText(element, promptText);
-        } finally {
-            removeLoadingIndicator();
-            unblockInput(element);
-
-            element.style.caretColor = originalCursorStyle;
-
-            isAIProcessing = false;
-            currentAIRequest = null;
-        }
-    }
-
-    function checkAndReplace() {
-        if (undoDetected) {
-            return;
-        }
-
-        if (processingReplace || isAIProcessing) return;
-
-        const activeEl = UniversalTextSetter.getActiveEditableElement();
-        if (!activeEl) return;
-
-        const currentText = UniversalTextSetter.getText(activeEl);
-
-        const aiCommand = Object.keys(AI_COMMANDS).find(cmd => currentText.endsWith(cmd));
-        if (aiCommand) {
-            setTimeout(() => {
-                processAICommand(activeEl, currentText, aiCommand);
-            }, SETTINGS.aiCommandDelay);
-            return;
-        }
-
-        const webhookCommand = Object.keys(WEBHOOK_COMMANDS).find(cmd => currentText.endsWith(cmd));
-        if (webhookCommand) {
-            setTimeout(() => {
-                processAICommand(activeEl, currentText, webhookCommand);
-            }, SETTINGS.aiCommandDelay);
-            return;
-        }
-
-        const sortedTriggers = [...TRIGGERS].sort((a, b) => b.trigger.length - a.trigger.length);
-
-        for (const item of sortedTriggers) {
-            const trigger = item.trigger;
-
-            if (SETTINGS.wordBoundary) {
-                const regex = new RegExp(`(^|\\s)${escapeRegex(trigger)}$`);
-                if (regex.test(currentText)) {
-                    performReplace(activeEl, currentText, trigger, item.replace);
-                    return;
-                }
-            } else {
-                if (currentText.endsWith(trigger)) {
-                    performReplace(activeEl, currentText, trigger, item.replace);
-                    return;
-                }
-            }
-        }
-    }
-
-    function performReplace(element, currentText, trigger, replacement) {
-        processingReplace = true;
-
-        const replaceText = typeof replacement === 'function' ? replacement() : replacement;
-
-        const newText = currentText.slice(0, -trigger.length) + replaceText;
-
-        UniversalTextSetter.setText(element, newText);
-
-        setTimeout(() => {
-            processingReplace = false;
-        }, 100);
-    }
-
-    function escapeRegex(str) {
-        return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    }
-
-    document.addEventListener('input', (e) => {
-        if (e.inputType !== 'historyUndo') {
-            undoDetected = false;
-        }
-
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-            checkAndReplace();
-        }, SETTINGS.debounceDelay);
-    }, true);
-
-    document.addEventListener('keydown', (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-            undoDetected = true;
-            return;
-        }
-
-        if (e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt' || e.key === 'Meta') {
-            return;
-        }
-
-        if (e.key === 'Escape' && isAIProcessing) {
-            AIClient.cancelRequest();
-            isAIProcessing = false;
-            removeLoadingIndicator();
-            const activeEl = UniversalTextSetter.getActiveEditableElement();
-            if (activeEl) unblockInput(activeEl);
-            return;
-        }
-
-        if (undoDetected && e.key !== 'z') {
-            undoDetected = false;
-        }
-
-        clearTimeout(debounceTimer);
-        debounceTimer = setTimeout(() => {
-            checkAndReplace();
-        }, SETTINGS.debounceDelay);
-    }, true);
-
-    document.addEventListener('keydown', (e) => {
-        if (e.ctrlKey && e.altKey && e.key === 'h') {
-            e.preventDefault();
-            showAIHelp();
-        }
-    });
-
-    function showAIHelp() {
-        const helpText = `
-AI Text Improver Commands:
--fix : Fix grammar and spelling
--imp : Improve text clarity
--gen : Expand text
--en  : Translate to English
--tr  : Translate to Turkish
--sum : Summarize
--frm : Make formal
--cas : Make casual
--ai  : Free AI prompt
-
-Webhook Commands:
--wh  : Send text to Discord webhook
-
-Type any of these commands after your text and press space/enter.
-Example: "merhaba nasılsın -tr"
-
-Press ESC to cancel AI processing.
-        `;
-        alert(helpText);
-    }
-
-    function sendToDiscordWebhook(message) {
-        return new Promise((resolve, reject) => {
-            if (!AI_CONFIG.DISCORD_WEBHOOK_URL || AI_CONFIG.DISCORD_WEBHOOK_URL === "YOUR_DISCORD_WEBHOOK_URL_HERE") {
-                reject(new Error("Discord webhook URL is not configured"));
-                return;
-            }
-
-            const formattedMessage = message;
+    const DiscordWebhook = {
+        send: (message) => new Promise((resolve, reject) => {
+            if (!CONFIG.discord.webhookUrl) return reject(new Error("No webhook"));
 
             GM_xmlhttpRequest({
                 method: "POST",
-                url: AI_CONFIG.DISCORD_WEBHOOK_URL,
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                data: JSON.stringify({
-                    content: formattedMessage,
-                    username: "Notes",
-                    avatar_url: "https://cdn.discordapp.com/avatars/1446237723622117599/fece26f842b5e9432f403673ae20545c.webp?size=80"
-                }),
-                onload: (response) => {
-                    if (response.status >= 200 && response.status < 300) {
-                        resolve();
-                    } else {
-                        reject(new Error(`Webhook error: ${response.status}`));
-                    }
-                },
-                onerror: () => reject(new Error("Network error")),
-                ontimeout: () => reject(new Error("Request timeout"))
+                url: CONFIG.discord.webhookUrl,
+                headers: { "Content-Type": "application/json" },
+                data: JSON.stringify({ content: message, username: CONFIG.discord.username }),
+                onload: (r) => r.status < 300 ? resolve() : reject(new Error(`${r.status}`)),
+                onerror: () => reject(new Error("Network"))
             });
-        });
-    }
+        })
+    };
 
-    console.log("Text Expander with AI loaded!");
-    console.log("AI Commands available:", Object.keys(AI_COMMANDS).join(", "));
+    // ╔═══════════════════════════════════════════════════════════════════════════╗
+    // ║                            INPUT BLOCKING                                  ║
+    // ╚═══════════════════════════════════════════════════════════════════════════╝
+
+    const InputBlocker = (() => {
+        let isBlocking = false;
+
+        const blocker = (e) => { if (isBlocking) { e.preventDefault(); e.stopPropagation(); } };
+
+        const block = (el) => {
+            isBlocking = true;
+            el._blocker = blocker;
+            ['keydown', 'keypress', 'input', 'paste'].forEach(t => el.addEventListener(t, blocker, true));
+        };
+
+        const unblock = (el) => {
+            isBlocking = false;
+            if (el._blocker) {
+                ['keydown', 'keypress', 'input', 'paste'].forEach(t => el.removeEventListener(t, el._blocker, true));
+                delete el._blocker;
+            }
+        };
+
+        return { block, unblock };
+    })();
+
+    // ╔═══════════════════════════════════════════════════════════════════════════╗
+    // ║                           TEXT EXPANDER ENGINE                             ║
+    // ╚═══════════════════════════════════════════════════════════════════════════╝
+
+    const TextExpander = (() => {
+        let processing = false;
+        let aiProcessing = false;
+        let debounceTimer = null;
+        let undoDetected = false;
+        let originalText = '';
+
+        const allCommands = [...Object.keys(AI_PROMPTS), ...WEBHOOK_COMMANDS];
+        const sortedTriggers = [...TRIGGERS].sort((a, b) => b.trigger.length - a.trigger.length);
+
+        const processAI = async (element, text, command) => {
+            if (aiProcessing) return;
+
+            const userInput = text.slice(0, -command.length).trim();
+            if (!userInput) return;
+
+            aiProcessing = true;
+            originalText = text;
+
+            const cursorStyle = element.style.caretColor;
+            element.style.caretColor = 'transparent';
+
+            InputBlocker.block(element);
+            if (CONFIG.dots.enabled) DotsAnimation.start(element);
+
+            const cleanup = () => {
+                DotsAnimation.stop();
+                InputBlocker.unblock(element);
+                element.style.caretColor = cursorStyle;
+                aiProcessing = false;
+                originalText = '';
+            };
+
+            try {
+                if (WEBHOOK_COMMANDS.includes(command)) {
+                    await DiscordWebhook.send(userInput);
+                    UniversalTextSetter.setText(element, userInput);
+                } else {
+                    const result = await AIClient.request(userInput, command);
+                    UniversalTextSetter.setText(element, result);
+                }
+            } catch (err) {
+                if (err.message === 'Cancelled') {
+                    UniversalTextSetter.setText(element, originalText);
+                } else {
+                    console.error('[TE] Error:', err.message);
+                    UniversalTextSetter.setText(element, `${userInput} [${err.message}]`);
+                }
+            } finally {
+                cleanup();
+            }
+        };
+
+        const checkAndReplace = () => {
+            if (undoDetected || processing || aiProcessing) return;
+
+            const el = UniversalTextSetter.getActiveEditable();
+            if (!el) return;
+
+            const text = UniversalTextSetter.getText(el);
+            Utils.log('Check:', text);
+
+            // Check commands
+            const cmd = allCommands.find(c => text.endsWith(c));
+            if (cmd) {
+                setTimeout(() => processAI(el, text, cmd), CONFIG.expander.aiCommandDelay);
+                return;
+            }
+
+            // Check triggers
+            for (const { trigger, replace } of sortedTriggers) {
+                const matches = CONFIG.expander.wordBoundary
+                    ? new RegExp(`(^|\\s)${Utils.escapeRegex(trigger)}$`).test(text)
+                    : text.endsWith(trigger);
+
+                if (matches) {
+                    processing = true;
+                    const replacement = typeof replace === 'function' ? replace() : replace;
+                    UniversalTextSetter.setText(el, text.slice(0, -trigger.length) + replacement);
+                    setTimeout(() => { processing = false; }, 100);
+                    return;
+                }
+            }
+        };
+
+        const handleInput = (e) => {
+            if (e.inputType !== 'historyUndo') undoDetected = false;
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(checkAndReplace, CONFIG.expander.debounceDelay);
+        };
+
+        const handleKeydown = (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 'z') { undoDetected = true; return; }
+            if (['Shift', 'Control', 'Alt', 'Meta'].includes(e.key)) return;
+
+            if (e.ctrlKey && e.altKey && e.key === 'h') {
+                e.preventDefault();
+                HelpModal.toggle();
+                return;
+            }
+
+            if (e.key === 'Escape') {
+                if (HelpModal.isVisible()) { HelpModal.hide(); return; }
+                if (aiProcessing) {
+                    e.preventDefault();
+                    AIClient.cancel();
+                    DotsAnimation.stop();
+                    aiProcessing = false;
+                    const el = UniversalTextSetter.getActiveEditable();
+                    if (el) {
+                        InputBlocker.unblock(el);
+                        if (originalText) UniversalTextSetter.setText(el, originalText);
+                        originalText = '';
+                    }
+                    return;
+                }
+            }
+
+            if (undoDetected && e.key !== 'z') undoDetected = false;
+            clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(checkAndReplace, CONFIG.expander.debounceDelay);
+        };
+
+        const init = () => {
+            document.addEventListener('input', handleInput, true);
+            document.addEventListener('keydown', handleKeydown, true);
+        };
+
+        return { init, isProcessing: () => aiProcessing };
+    })();
+
+    // ╔═══════════════════════════════════════════════════════════════════════════╗
+    // ║                           HOVER TRANSLATOR                                 ║
+    // ╚═══════════════════════════════════════════════════════════════════════════╝
+
+    const HoverTranslator = (() => {
+        const state = { tooltip: null, cache: new Map(), seq: 0, timers: {}, request: null };
+
+        const clearTimer = (n) => { if (state.timers[n]) { clearTimeout(state.timers[n]); state.timers[n] = null; } };
+
+        const getTooltip = () => {
+            if (state.tooltip) return state.tooltip;
+            const el = document.createElement('div');
+            el.className = 'te-tooltip';
+            el.id = 'ht-tooltip';
+            document.body.appendChild(el);
+            return state.tooltip = el;
+        };
+
+        const hide = () => {
+            const tip = state.tooltip;
+            if (!tip) return;
+            tip.classList.remove('te-tooltip--visible');
+            clearTimer('hide');
+            state.timers.hide = setTimeout(() => {
+                if (!tip.classList.contains('te-tooltip--visible')) tip.style.display = 'none';
+            }, CONFIG.translator.hideDelay);
+        };
+
+        const position = (anchor) => {
+            const tip = getTooltip();
+            tip.style.display = 'block';
+
+            const { offsetWidth: w, offsetHeight: h } = tip;
+            const { pageYOffset: scrollY, pageXOffset: scrollX, innerWidth } = window;
+            const { tooltipGap: gap, edgePadding: pad } = CONFIG.translator;
+
+            let pos = 'top', top = scrollY + anchor.yTop - h - gap;
+            if (top < scrollY + pad) { pos = 'bottom'; top = scrollY + anchor.yBottom + gap; }
+
+            const center = scrollX + anchor.x;
+            const left = Utils.clamp(center, scrollX + pad + w/2, scrollX + innerWidth - pad - w/2);
+            const offset = Utils.clamp(center - left, -(w/2 - 16), w/2 - 16);
+
+            tip.dataset.pos = pos;
+            tip.style.left = `${left}px`;
+            tip.style.top = `${top}px`;
+            tip.style.setProperty('--arrow-offset', `${offset}px`);
+        };
+
+        const show = (content, loading, anchor) => {
+            const tip = getTooltip();
+            clearTimer('hide');
+            tip.classList.remove('te-tooltip--visible');
+            tip.style.display = 'block';
+            tip.style.visibility = 'hidden';
+            tip.innerHTML = loading
+                ? `<span class="te-tooltip__loading"><span class="te-tooltip__spinner"></span>${Utils.escapeHtml(content)}</span>`
+                : Utils.escapeHtml(content);
+            position(anchor);
+            tip.style.visibility = 'visible';
+            requestAnimationFrame(() => tip.classList.add('te-tooltip--visible'));
+        };
+
+        const getSelection = () => {
+            const sel = window.getSelection();
+            if (!sel?.rangeCount) return { text: '', anchor: null };
+            const text = sel.toString().trim();
+            const rect = sel.getRangeAt(0).getBoundingClientRect();
+            return {
+                text,
+                anchor: (rect.width || rect.height) ? { x: rect.left + rect.width/2, yTop: rect.top, yBottom: rect.bottom } : null
+            };
+        };
+
+        const translate = async (text) => {
+            const key = text.trim();
+            if (state.cache.has(key)) return state.cache.get(key);
+
+            if (state.request) { try { state.request.abort(); } catch {} }
+
+            return new Promise((resolve, reject) => {
+                state.request = GM_xmlhttpRequest({
+                    method: 'GET',
+                    url: `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${CONFIG.translator.targetLang}&dt=t&q=${encodeURIComponent(key)}`,
+                    timeout: CONFIG.translator.timeout,
+                    onload: (r) => {
+                        state.request = null;
+                        try {
+                            const result = JSON.parse(r.responseText)?.[0]?.map(x => x?.[0]).filter(Boolean).join('') || '';
+                            state.cache.set(key, result);
+                            resolve(result);
+                        } catch (e) { reject(e); }
+                    },
+                    onerror: () => { state.request = null; reject(new Error('Network')); },
+                    ontimeout: () => { state.request = null; reject(new Error('Timeout')); },
+                    onabort: () => { state.request = null; reject(new Error('Cancelled')); }
+                });
+            });
+        };
+
+        const perform = async () => {
+            if (UniversalTextSetter.isEditable(document.activeElement)) return;
+
+            const { text, anchor } = getSelection();
+            const { minChars, maxChars } = CONFIG.translator;
+
+            if (!text || text.length < minChars || text.length > maxChars || !anchor) { hide(); return; }
+
+            const seq = ++state.seq;
+            show('Çeviriliyor...', true, anchor);
+
+            try {
+                const result = await translate(text);
+                if (seq === state.seq) show(result || 'Çeviri yok', false, anchor);
+            } catch (err) {
+                if (seq === state.seq && err.message !== 'Cancelled') show('Hata', false, anchor);
+            }
+        };
+
+        const handleSelection = () => {
+            if (UniversalTextSetter.isEditable(document.activeElement)) { hide(); return; }
+            clearTimer('selection');
+            state.timers.selection = setTimeout(() => getSelection().text ? perform() : hide(), CONFIG.translator.debounce);
+        };
+
+        const init = () => {
+            getTooltip();
+            document.addEventListener('mouseup', handleSelection, { passive: true });
+            document.addEventListener('keyup', (e) => {
+                if (!UniversalTextSetter.isEditable(document.activeElement) && (e.key.startsWith('Arrow') || e.key === 'Shift')) handleSelection();
+            });
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') { state.seq++; if (state.request) state.request.abort(); hide(); }
+            });
+            window.addEventListener('scroll', () => { hide(); state.seq++; }, { passive: true });
+            document.addEventListener('focusin', (e) => UniversalTextSetter.isEditable(e.target) && hide());
+        };
+
+        return { init };
+    })();
+
+    // ╔═══════════════════════════════════════════════════════════════════════════╗
+    // ║                             INITIALIZATION                                 ║
+    // ╚═══════════════════════════════════════════════════════════════════════════╝
+
+    TextExpander.init();
+    HoverTranslator.init();
+
+    console.log('✨ Text Expander AI v2.3.0 | Ctrl+Alt+H for help');
+
 })();
