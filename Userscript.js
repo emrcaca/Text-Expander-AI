@@ -1821,6 +1821,6 @@
     TextExpander.init();
     HoverTranslator.init();
 
-    console.log('Text Expander AI v2.4.0 | Ctrl+Alt+H yardim | Ctrl+Alt+S ayarlar');
+    console.log('Text Expander AI v1.0.1 | Ctrl+Alt+H yardim | Ctrl+Alt+S ayarlar');
 
 })();
