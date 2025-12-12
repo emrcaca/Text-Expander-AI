@@ -59,12 +59,8 @@
 ### Adimlar
 
 1. Tarayiciniza Tampermonkey eklentisini yukleyin
-2. Asagidaki baglantiya tiklayin veya scripti manuel olarak ekleyin:
-
-   [![Install](https://img.shields.io/badge/Install-UserScript-brightgreen?style=for-the-badge)](https://github.com/emrcaca/AI-Text-Improver/raw/main/text-expander-ai.user.js)
-
-3. "Install" butonuna tiklayin
-4. Script otomatik olarak tum sayfalarda calisacaktir
+2. Scripti manuel olarak ekleyin
+3. Script otomatik olarak tum sayfalarda calisacaktir
 
 ---
 
