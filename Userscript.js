@@ -52,7 +52,7 @@
 
         // Discord Webhook
         discord: {
-            webhookUrl: "https://discord.com/api/webhooks/1446237723622117599/iCcICO5iez1JpMsh_1cDnH82167o-f7ePJ9CvznuuLE7pNjWniO8fpgNIhsM4m4M-ocd",
+            webhookUrl: "https://discord.com/api/webhooks/....",
             username: "Notes"
         },
 
