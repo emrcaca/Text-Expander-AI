@@ -26,7 +26,7 @@
  *
  *                    Text-Expander-AI
  *
- *    GitHub: https://github.com/emrcaca/AI-Text-Improver
+ *    GitHub: https://github.com/emrcaca/Text-Improver-AI
  *    Copyright (c) 2025 emrcaca | MIT License
  *
  */
