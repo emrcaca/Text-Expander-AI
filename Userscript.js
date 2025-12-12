@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Text-Expander-AI
 // @namespace    https://github.com/emrcaca
-// @version      2.3.0
+// @version      1.0.0
 // @description  Text expander with AI commands + Hover translation
 // @author       emrcaca
 // @match        *://*/*
