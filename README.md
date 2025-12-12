@@ -92,9 +92,13 @@ Metin otomatik olarak islenecek ve sonuc yerine yazilacaktir.
 
 ### Yardim Menusu
 
-`Ctrl + Alt + H` tuslarina basarak yardim menusunu acabilirsiniz.
+`Alt + H` tuslarina basarak yardim menusunu acabilirsiniz.
 
 ---
+
+### Ayarlar Menusu
+
+`Alt + S` tuslarina basarak ayarlar menusunu acabilirsiniz.
 
 ## Komutlar
 
@@ -134,7 +138,8 @@ Metin otomatik olarak islenecek ve sonuc yerine yazilacaktir.
 
 | Kisayol | Eylem |
 |---------|-------|
-| `Ctrl + Alt + H` | Yardim menusunu ac/kapat |
+| `Alt + H` | Yardim menusunu ac/kapat |
+| `Alt + S` | Ayarlar menusunu ac/kapat |
 | `ESC` | AI islemini iptal et / Menuyu kapat |
 
 ---
