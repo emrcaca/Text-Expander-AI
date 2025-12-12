@@ -13,7 +13,7 @@
 
 **AI destekli metin genişletici ve hover çeviri aracı**
 
-[![Version](https://img.shields.io/badge/version-2.3.0-blue.svg)](https://github.com/emrcaca/AI-Text-Improver)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/emrcaca/AI-Text-Improver)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![UserScript](https://img.shields.io/badge/userscript-Tampermonkey-orange.svg)](https://www.tampermonkey.net/)
 
