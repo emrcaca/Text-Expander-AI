@@ -244,6 +244,6 @@ Bu proje MIT lisansi altinda lisanslanmistir. Detaylar icin [LICENSE](LICENSE) d
 
 <div align="center">
 
-Bu projeyi begendiniz mi? Yildiz vermeyi unutmayin!
+⭐ Bu projeyi begendiniz mi? Yildiz vermeyi unutmayin!
 
 </div>
