@@ -1,81 +1,108 @@
 # Text-Expander-AI + Hover Translator
 
-Yapay zeka destekli metin genisletme ve hover ceviri ozelliklerini birlestiren bir userscript.
+Yapay zeka destekli metin genişletme ve hover çeviri özelliklerini birleştiren bir userscript.
 
 [English README](README.en.md)
 
-## Ozellikler
+## Özellikler
 
 ### Text Expander
-- Otomatik olarak onceden tanimli metne donusen ozel tetikleyiciler tanimlama
-- Metin isleme icin yapay zeka destekli komutlar (dil bilgisi duzeltme, ozetleme, ton ayarlama vb.)
-- Ctrl+Z / Ctrl+Y ile geri al/ileri al destegi
-- Genisletmeden hemen sonra Backspace ile hizli geri alma
+- Otomatik olarak önceden tanımlı metne dönüşen özel tetikleyiciler tanımlama
+- Metin işleme için yapay zeka destekli komutlar (dil bilgisi düzeltme, özetleme, ton ayarlama vb.)
+- Ctrl+Z / Ctrl+Y ile geri al/ileri al desteği
+- Genişletmeden hemen sonra Backspace ile hızlı geri alma
 
 ### Hover Translator
-- Google Translate kullanarak secili metni otomatik cevirir
-- Birden fazla hedef dili destekler (Turkce, Ingilizce, Almanca, Fransizca, Ispanyolca)
-- Daha iyi performans icin cevirileri onbellege alir
-- Kaynak ve hedef dil ayni oldugunda ceviriyi atlar
+- Google Translate kullanarak seçili metni otomatik çevirir
+- Birden fazla hedef dili destekler (Türkçe, İngilizce, Almanca, Fransızca, İspanyolca)
+- Daha iyi performans için çevirileri önbelleğe alır
+- Kaynak ve hedef dil aynı olduğunda çeviriyi atlar
 
 ## Kurulum
 
-1. Bir userscript yoneticisi yukleyin (Tampermonkey, Violentmonkey vb.)
-2. Yeni bir script olusturun ve `Userscript.js` icerigini yapistirin
-3. Ayarlar panelinden API ayarlarinizi yapilandirin
+1. Bir userscript yöneticisi yükleyin (Tampermonkey, Violentmonkey vb.)
+2. Yeni bir script oluşturun ve `Userscript.js` içeriğini yapıştırın
+3. Ayarlar panelinden API ayarlarınızı yapılandırın
 
-## Kullanim
+## Kullanım
 
-### AI Komutlari
-Metninizi yazin ve sonuna bir komut ekleyin:
+### AI Komutları
+Metninizi yazın ve sonuna bir komut ekleyin:
 ```
 metniniz burada -fix
 ```
 
-Varsayilan komutlar:
-- `-fix` - Dil bilgisi, yazim ve noktalama hatalarini duzeltir
-- `-ai` - Genel yapay zeka asistani
-- `-short` - Tek satirda ozetler
-- `-formal` - Resmi tonda yeniden yazar
-- `-casual` - Samimi tonda yeniden yazar
-- `-prompt-engineer` - AI promptlari olusturur
-- `-prompt-enhancer` - Mevcut promptlari gelistirir
-- `-text-improver` - Metin okunabilirligini arttirir
+Varsayılan komutlar:
+
+| Komut | Açıklama |
+|-------|----------|
+| `-ai` | Genel yapay zeka asistanı |
+| `-tr` | Türkçeye çeviri |
+| `-en` | İngilizceye çeviri |
+| `-fix` | Dil bilgisi, yazım ve noktalama hatalarını düzeltir |
+| `-imp` | Anlam koruyarak stil ve okunabilirliği geliştirir |
+| `-enh` | İçeriği detaylar ve örneklerle zenginleştirir |
+| `-sum` | Tek cümlede özetler |
+| `-frm` | Resmi, profesyonel tonda yeniden yazar |
+| `-cas` | Samimi, günlük tonda yeniden yazar |
+| `--eng` | AI promptu oluşturur |
+| `--enh` | Mevcut promptu geliştirir |
+| `--imp` | Prompt yapısını ve tonunu iyileştirir |
 
 ### Tetikleyiciler
-Onceden tanimli metinle otomatik degistirmek icin bir tetikleyici kelime yazin. Varsayilan tetikleyiciler yaygin selamlamalari, iletisim bilgisi yer tutucularini ve sosyal medya baglantilarini icerir.
+Önceden tanımlı metinle otomatik değiştirmek için bir tetikleyici kelime yazın.
 
-### Ceviri
-Bir web sayfasinda herhangi bir metni secin ve tooltip'te cevirisini gorun.
+Varsayılan tetikleyiciler:
 
-## Yapilandirma
+| Tetikleyici | Değer |
+|-------------|-------|
+| `hi`, `hello`, `hey` | Selamlama mesajları |
+| `selam`, `bye`, `gorusuruz` | Türkçe selamlama/vedalaşma |
+| `thanks`, `thankyou` | Teşekkür mesajları |
+| `:tel` | Telefon numarası |
+| `:email` | E-posta adresi |
+| `:address` | Adres bilgisi |
+| `:yardım`, `:help` | Yardım mesajı |
+| `office_hours`, `calisma_saatleri` | Çalışma saatleri |
+| `support`, `faq` | Destek bilgileri |
+| `website`, `instagram`, `twitter`, `linkedin` | Sosyal medya linkleri |
+| `whatsapp`, `iletisim` | İletişim bilgileri |
+| `pricing`, `randevu` | Fiyat ve randevu bilgileri |
+| `acil`, `konum` | Acil durum ve konum |
+| `newsletter`, `privacy`, `terms` | Bülten ve yasal linkler |
 
-Ayarlara userscript menusu uzerinden erisin (userscript yoneticisi simgesine tiklayin ve "Ayarlar"i secin).
+### Çeviri
+Bir web sayfasında herhangi bir metni seçin ve tooltip'te çevirisini görün.
+
+## Yapılandırma
+
+Ayarlara userscript menüsü üzerinden erişin (userscript yöneticisi simgesine tıklayın ve "Ayarlar"ı seçin).
 
 ### Ayar Sekmeleri
-- Genel: Ozellikleri etkinlestir/devre disi birak, API yapilandirmasi, hedef dil
-- Komutlar: Ozel promptlarla AI komutlari ekle/kaldir
-- Tetikleyiciler: Metin tetikleyicileri ekle/kaldir
-- Yardim: Klavye kisayollari ve kullanim kilavuzu
+- **Genel**: Özellikleri etkinleştir/devre dışı bırak, API yapılandırması, hedef dil
+- **Komutlar**: Özel promptlarla AI komutları ekle/kaldır
+- **Tetikleyiciler**: Metin tetikleyicileri ekle/kaldır
+- **Yardım**: Klavye kısayolları ve kullanım kılavuzu
 
-### API Yapilandirmasi
-- URL: OpenAI uyumlu API endpoint'iniz
-- Key: API anahtariniz
-- Model: Kullanilacak model adi
+### API Yapılandırması
+- **URL**: OpenAI uyumlu API endpoint'iniz
+- **Key**: API anahtarınız
+- **Model**: Kullanılacak model adı
+- **Timeout**: İstek zaman aşımı (varsayılan: 60000ms)
 
-## Klavye Kisayollari
+## Klavye Kısayolları
 
-| Islem | Kisayol |
+| İşlem | Kısayol |
 |-------|---------|
 | Geri Al | Ctrl+Z |
-| Ileri Al | Ctrl+Y |
-| Hizli Geri Al | Backspace (genisletmeden hemen sonra) |
-| Iptal | ESC |
+| İleri Al | Ctrl+Y |
+| Hızlı Geri Al | Backspace (genişletmeden hemen sonra) |
+| İptal | ESC |
 
 ## Gereksinimler
 
-- Userscript yoneticisi (Tampermonkey, Violentmonkey, Greasemonkey)
-- AI komutlari icin OpenAI uyumlu API endpoint'i
+- Userscript yöneticisi (Tampermonkey, Violentmonkey, Greasemonkey)
+- AI komutları için OpenAI uyumlu API endpoint'i
 
 ## Lisans
 
