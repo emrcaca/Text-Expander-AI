@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Text-Expander-AI + Hover Translator
 // @namespace    https://github.com/emrcaca
-// @version      1.0.1
+// @version      1.0.2
 // @description  Text Expander AI + Hover Çeviri
 // @author       emrcaca
 // @match        *://*/*
@@ -78,7 +78,7 @@
       timeout: 60000,
     }),
     timing: Object.freeze({
-      debounce: 20,
+      debounce: 0,
       dotSpeed: 300,
     }),
     commands: Object.freeze({
@@ -125,7 +125,8 @@
       'konum': 'Bizi haritada bulmak için: https://maps.google.com/?q=Ornek+Konum',
       'newsletter': 'Bültene kaydolmak için: https://ornek.com/newsletter',
       'privacy': 'Gizlilik politikası: https://ornek.com/privacy',
-      'terms': 'Kullanım koşulları: https://ornek.com/terms'
+      'terms': 'Kullanım koşulları: https://ornek.com/terms',
+      ':D': '😀'
     }),
 
     translator: Object.freeze({
@@ -669,34 +670,42 @@
       });
     };
 
-    /**
-     * Set text for input/textarea elements
-     * @param {HTMLInputElement|HTMLTextAreaElement} el
-     * @param {string} text
-     */
-    const setInputText = (el, text) => {
-      const setter = el.tagName === 'TEXTAREA' ? textareaSetter : inputSetter;
+/**
+ * Set text for input/textarea elements
+ * @param {HTMLInputElement|HTMLTextAreaElement} el
+ * @param {string} text
+ */
+const setInputText = (el, text) => {
+  const setter = el.tagName === 'TEXTAREA' ? textareaSetter : inputSetter;
 
-      if (setter) {
-        setter.call(el, text);
-      } else {
-        el.value = text;
-      }
+  if (setter) {
+    setter.call(el, text);
+  } else {
+    el.value = text;
+  }
 
-      // React compatibility
-      el._valueTracker?.setValue?.(text);
+  // React compatibility - tracker'a ESKİ değeri ver ki farkı algılasın
+  const tracker = el._valueTracker;
+  if (tracker) {
+    tracker.setValue('');
+  }
 
-      // Dispatch events
-      el.dispatchEvent(new Event('input', { bubbles: true }));
-      el.dispatchEvent(new Event('change', { bubbles: true }));
+  // InputEvent kullan (Event değil)
+  el.dispatchEvent(new InputEvent('input', {
+    bubbles: true,
+    cancelable: true,
+    inputType: 'insertText',
+    data: text
+  }));
+  el.dispatchEvent(new Event('change', { bubbles: true }));
 
-      // Move cursor to end
-      try {
-        el.setSelectionRange?.(text.length, text.length);
-      } catch (e) {
-        // Ignore selection errors
-      }
-    };
+  // Move cursor to end
+  try {
+    el.setSelectionRange?.(text.length, text.length);
+  } catch (e) {
+    // Ignore selection errors
+  }
+};
 
     /**
      * Set text for contenteditable elements
@@ -785,6 +794,25 @@
     };
 
     /**
+     * Check if cursor is at the end of the text
+     * @param {Element} el
+     * @returns {boolean}
+     */
+    const isCursorAtEnd = (el) => {
+      if (!el) return false;
+      if (el.isContentEditable) {
+        const sel = window.getSelection();
+        if (!sel.rangeCount) return false;
+        const range = sel.getRangeAt(0);
+        if (!range.collapsed) return false;
+        const textLength = el.textContent.length;
+        const cursorPos = range.startOffset;
+        return cursorPos === textLength;
+      }
+      return el.selectionStart === el.value.length;
+    };
+
+    /**
      * Clear selection in element
      * @param {Element} el
      */
@@ -821,6 +849,7 @@
       getText,
       setText,
       hasSelection,
+      isCursorAtEnd,
       clearSelection,
       createElement,
     });
@@ -1081,13 +1110,35 @@
 
   const TranslatorService = (() => {
     let tooltip = null;
-    const cache = new Map();
+    const CACHE_KEY = 'te_translations_cache';
+    let cache = new Map();
     let sequenceId = 0;
     let hideTimer = null;
     let selectionTimer = null;
     let clickTimes = [];
     let clickTimer = null;
     let lastClickTime = 0;
+
+    // Load cache from localStorage
+    try {
+      const stored = localStorage.getItem(CACHE_KEY);
+      if (stored) {
+        cache = new Map(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.warn('Translation cache load failed:', e);
+      cache = new Map();
+    }
+
+    // Save cache to localStorage
+    const saveCache = () => {
+      try {
+        const entries = [...cache.entries()];
+        localStorage.setItem(CACHE_KEY, JSON.stringify(entries));
+      } catch (e) {
+        console.warn('Translation cache save failed:', e);
+      }
+    };
 
     /**
      * Get or create tooltip element
@@ -1195,6 +1246,7 @@
               // Skip if source language is same as target
               if (data?.[2] === targetLang) {
                 cache.set(key, null);
+                saveCache();
                 resolve(null);
                 return;
               }
@@ -1206,6 +1258,7 @@
                 .join('') || '';
 
               cache.set(key, result);
+              saveCache();
               resolve(result);
             } catch (e) {
               reject(e);
@@ -1960,8 +2013,8 @@
         }
       }
 
-      // Backspace: Quick undo
-      if (key === 'Backspace' && !DOMUtils.hasSelection(element)) {
+      // Backspace: Quick undo (only when cursor is at the end)
+      if (key === 'Backspace' && !DOMUtils.hasSelection(element) && DOMUtils.isCursorAtEnd(element)) {
         const currentText = DOMUtils.getText(element);
         if (UndoManager.canQuickUndo(element, currentText)) {
           e.preventDefault();
