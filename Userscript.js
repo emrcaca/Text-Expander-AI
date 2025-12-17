@@ -78,7 +78,7 @@
       timeout: 60000,
     }),
     timing: Object.freeze({
-      debounce: 0,
+      debounce: 20,
       dotSpeed: 300,
     }),
     commands: Object.freeze({
